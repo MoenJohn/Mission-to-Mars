@@ -1,14 +1,32 @@
+# Import Dependencies
 import pandas as pd
-
-# Import Splinter and BeautifulSoup
+import datetime as dt
 from splinter import Browser
-from bs4 import BeautifulSoup as soup
+from bs4 import BeautifulSoup as bs
 from webdriver_manager.chrome import ChromeDriverManager
+import time
 
+def scrape_all():
 
-# Set up executable path
-executable_path = {'executable_path': ChromeDriverManager().install()}
-browser = Browser('chrome', **executable_path, headless=False)
+    # Initiate headless driver for deployment
+    executable_path = {'executable_path': ChromeDriverManager().install()}
+    browser = Browser('chrome', **executable_path, headless=True)
+
+    # Run every scraping function and return results
+    news_title, news_paragraph = mars_news(browser)
+    data = {
+        "news_title": news_title,
+        "news_paragraph": news_paragraph,
+        "featured_image": featured_image(browser),
+        "facts": mars_facts(),
+        "hemispheres": hemisphere_imgs(browser),
+        "last_modified": dt.datetime.now()
+    }
+
+    # Stop webdriver and return data
+    browser.quit()
+    return data
+
 
 ##################
 # Mars Headlines #
@@ -35,7 +53,7 @@ def mars_news(browser):
 
     # Set up HTML Parser
     html = browser.html
-    news_soup = soup(html, 'html.parser')
+    news_soup = bs(html, 'html.parser')
 
     # Scrape the title and paragraph text
     try:
@@ -71,7 +89,7 @@ def featured_image(browser):
 
     # Parse the resulting html with soup
     html = browser.html
-    img_soup = soup(html, 'html.parser')
+    img_soup = bs(html, 'html.parser')
 
 
     # find the relative image url
@@ -105,7 +123,39 @@ def mars_facts():
     # Convert dataframe into HTML format, add bootstrap
     return df.to_html()
 
+def hemisphere_imgs(browser):
+    url = 'https://marshemispheres.com/'
+    browser.visit(url)
 
-browser.quit()
 
+    html = browser.html
+    soup = bs(html, 'html.parser')
+    items = soup.find("div", {"class":"results"}).find_all("div", {"class":"item"})
+    
+    # 2. Create a list to hold the images and titles.
+    hemisphere_image_urls = []
+
+    # 3. Write code to retrieve the image urls and titles for each hemisphere.
+    for i,item in enumerate(items):
+        print(i,item)
+        link = item.find("a", {"class":"itemLink"})["href"]
+        full_url = url + link
+
+        browser.visit(full_url)
+        time.sleep(1)
+
+        html = browser.html
+        soup = bs(html, 'html.parser')
+
+        img = soup.find("img", {"class", "wide-image"})["src"]
+        img_url = url + img
+        
+        title = soup.find("h2", {"class":"title"}).text
+        title = title.split("Enhanced")[0].strip()
+
+        data = {"img_url": img_url, "title": title}
+
+        hemisphere_image_urls.append(data)
+
+    return hemisphere_image_urls
 
